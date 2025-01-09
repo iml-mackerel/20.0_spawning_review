@@ -1,0 +1,123 @@
+---
+title: "Proxy of disturbance"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: FALSE
+    code_folding: show
+    number_sections: TRUE
+---
+   
+   
+# SET-UP
+```{r  markdown, echo=F}
+library(knitr)
+opts_chunk$set(echo = T, collapse = T, fig.align = "center", fig.width =8, fig.height = 10)
+options(width = 140)
+```    
+
+## settings
+```{r settings, message = F}
+source('0.0_settings.R')
+
+```
+
+## check recrutement with removals
+```{r data, message = F}
+#compare recrutement under ssb or ssb0
+par<- read.csv(file=paste0("../00.0_model/csv/",max(my.year),'/par.csv'))
+bh<- par[9:10, "par"]
+
+ssb0<- read.csv(file=paste0("../00.0_model/csv/",max(my.year),'/ssb0.csv'))
+#ssb6<- read.csv(file=paste0("../00.0_model/csv/",max(my.year),'/ssb.csv'))
+
+#left_join(
+#ssb0 %>%  mutate(REC0=exp(bh[1]+log(Estimate)-log(1.0+exp(bh[2])*Estimate))) %>%  dplyr::select(year, REC0),
+#ssb6 %>%  mutate(REC6=exp(bh[1]+log(Estimate)-log(1.0+exp(bh[2])*Estimate)))%>%  dplyr::select(year, REC6)) %>% 
+#    pivot_longer(2:3, names_to="period", values_to="recrutement") %>% 
+#    ggplot(aes(x=year, y=recrutement, col=period))+geom_point()+geom_line()
+
+
+
+#left_join(
+#ssb0 %>%  mutate(REC0=exp(bh[1]+log(Estimate)-log(1.0+exp(bh[2])*Estimate))) %>%  dplyr::select(year, REC0),
+#ssb6 %>%  mutate(REC6=exp(bh[1]+log(Estimate)-log(1.0+exp(bh[2])*Estimate)))%>%  dplyr::select(year, REC6)) %>% 
+#    pivot_longer(2:3, names_to="period", values_to="recrutement") %>% 
+#    ggplot(aes(x=year, y=recrutement, col=period))+geom_point()+geom_line()
+
+#exp(a+log(S)-log(1.0+exp(b)*S
+                 
+ #recrutement if it dependend only on biuomass                 
+                 
+                 
+#logα	1.03
+#logβ	-11.88
+
+#left_join(
+#ssb0 %>%  mutate(REC0=exp(bh[1]+log(Estimate)-log(1.0+exp(bh[2])*Estimate))) %>% rename(SSB0 =Estimate) %>%  dplyr::select(year, REC0, SSB0),
+#ssb6 %>%  mutate(REC6=exp(bh[1]+log(Estimate)-log(1.0+exp(bh[2])*Estimate)))%>%rename(SSB6 =Estimate) %>% dplyr::select(year, REC6, SSB6)) %>% 
+ #   pivot_longer(2:5) %>% mutate(variable= if_else(grepl(name, pattern="REC"), "rec", "ssb"),
+  #                               period=if_else(grepl(name, pattern="0"), "jan", "jun")) %>%  dplyr::select(-name) %>%  pivot_wider(names_from=variable, values_from = value) %>% 
+  #  ggplot(aes(x=ssb, y=rec, col=period))+geom_point()+geom_line()
+
+
+#ssb6 - debarquement juin -juillet = recrutement
+#ssb6 sans débarquement
+
+caa.periodR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/caa.period.Rdata")
+load(caa.periodR)
+
+caa.periodR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/caa.period.Rdata")
+load(caa.periodR)
+
+library(tibble)
+mo <- read.ices(paste0("../00.0_model/data/",max(my.year),'/mo.dat')) %>%  as.data.frame() %>% rownames_to_column("year") %>%  pivot_longer(`1`:`10`, names_to="age", values_to="proportion_mature") %>%   mutate(across(everything(), as.numeric))
+
+ca.ssb<- left_join(caa.period %>%  filter(period==2), mo) %>%  mutate(ssb_removal= caaw * proportion_mature) %>%  dplyr::select(year, period,age, ssb_removal) %>%  group_by(year) %>%  summarize(ssb_removal= sum(ssb_removal))
+
+pop<- left_join(ssb0 %>% rename(SSB0 =Estimate) %>%  dplyr::select(year, SSB0), ca.ssb) %>%  
+    mutate(SSB7=SSB0-ssb_removal,
+    REC0=exp(bh[1]+log(SSB0)-log(1.0+exp(bh[2])*SSB0)),
+     REC7=exp(bh[1]+log(SSB7)-log(1.0+exp(bh[2])*SSB7)),
+    rec_change = (REC7-REC0)/REC0 *100)   %>% filter(!is.na(REC0) & !is.na(REC7)) 
+
+kable(pop)
+
+#pop %>% dplyr::select(year, REC0, REC7)  %>%  
+#    pivot_longer(2:3) %>%  ggplot(aes(x=name, y=value)) +geom_boxplot()
+
+
+p1<- pop %>%  ggplot(aes(x=year, y=SSB0)) +geom_point() +geom_line() + scale_x_continuous(name="Année | Year", breaks=seq(1975, max(my.year), 5)) + ylab("BRP en janvier \n SSB in January")
+p2<- pop %>%  ggplot(aes(x=year, y=ssb_removal)) +geom_point() +geom_line()+ scale_x_continuous(name="Année | Year", breaks=seq(1975, max(my.year), 5)) + ylab("Débarquements durant le 2e trimetre \n Landings during the second trimester")
+p3<- pop %>%  ggplot(aes(x=year, y=rec_change)) +geom_point() +geom_line()+ scale_x_continuous(name="Année | Year", breaks=seq(1975, max(my.year), 5)) + ylab("Changement relatif du recrutement \n Relativement change in recruitment")
+
+ggarrange(p1, p2, p3, nrow=3)
+
+```
+
+see iml-mackerel/00.0_model/Rscripts/2024/surplus/compare_F_spawning.R
+propF cannot be adjusted, yes but compensated by other parameters , same results.
+
+
+
+# CATCH-AT_AGE by period, gear, region
+```{r caa.all, message = F, fig.width = 10, fig.height = 4}
+cR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/catch.Rdata")
+load(cR)
+
+reg.group<- read.delim("../02.0_catch-at-age/data/caa_group_region.txt")
+
+left_join(catch, reg.group) %>% mutate(date=as.Date(paste(year, month, "15", sep="-")),
+                 decade= paste0(year- year %% 10,"s"),
+                 month=as.factor(month),
+                 decade=as.factor(decade),
+                 year=as.factor(year)) %>% filter(decade %in% c("2000s", "2010s")) %>% 
+    group_by(region, month, decade, year) %>%  summarize(catch=sum(catch, na.rm=T)) %>% 
+     group_by(decade,year) %>%  mutate(catchsum=sum(catch, na.rm=T),
+                                              propcatch=catch/catchsum) %>%
+    group_by(month, region, decade) %>%  summarize(meanprop=mean(propcatch)) %>% 
+    ggplot(aes(x=month, y=meanprop, fill=region)) +geom_bar(stat="identity") +facet_wrap(~decade) +scale_fill_viridis_d(name="",na.translate=F) +scale_x_discrete(name="Mois | Month") + scale_y_continuous(name="Proportion des débarquements | Proportion of landings")
+```

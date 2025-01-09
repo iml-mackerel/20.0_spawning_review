@@ -1,0 +1,52 @@
+---
+title: "Proxy of disturbance"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: FALSE
+    code_folding: show
+    number_sections: TRUE
+---
+   
+   
+# SET-UP
+```{r  markdown, echo=F}
+library(knitr)
+opts_chunk$set(echo = T, collapse = T, fig.align = "center", fig.width = 5, fig.height = 3)
+options(width = 140)
+```    
+
+## settings
+```{r settings, message = F}
+source('0.0_settings.R')
+
+```
+
+## load data
+```{r data, message = F}
+f <-  read.csv("../00.0_model/csv/2022/f.csv", header=T)
+colnames(f) <-  c("year", 1:10)
+
+par <-  read.csv("../00.0_model/csv/2022/par.csv")
+par<- invlogit(par[11:14, "par"])
+
+sel<- data.frame(matrix(ncol=10, nrow=1)); colnames(sel) = 1:10
+
+sel[1,] <-  c(par, rep(0.99,6))
+
+dis.eff<- left_join(f %>%  pivot_longer(`1`:`10`, names_to="age", values_to = "F"),
+          sel %>%  pivot_longer(1:10, names_to="age", values_to = "selectivity")
+) %>%  mutate(effect= ((1 - exp(-`F`)) * ((1 - selectivity)/selectivity)))
+
+#`F`=0.3
+#selectivity=0.95
+#effect= ((1 - exp(-`F`)) * ((1 - selectivity)/selectivity))
+
+dis.eff %>%  ggplot(aes(x=as.numeric(age), y=effect, group=age))+geom_boxplot()+
+    scale_x_continuous(name="Âge | Age", breaks=1:10) + 
+    ylab("Effet relatif | Relative effect") 
+
+```

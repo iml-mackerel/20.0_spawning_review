@@ -1,0 +1,20 @@
+name: Mackerel
+output_dir: docs/2022
+exclude: ["img", "R","csv", "data","Rdata","docs","scripts"]
+navbar:
+  title: Mackerel spawning
+  left:
+    - icon: fa-cogs
+      href: 0.0_settings.html
+    - text: Fishing mortality
+      href: 1.0_Fishing-mortality.html
+    - text: Spawning distrubance
+      href: 2.0_disturbance.html
+    - text: Population biology
+      href: 4.0_Population.html
+      
+output:
+  html_document:
+    theme: cosmo
+    highlight: textmate
+    css: styles.css

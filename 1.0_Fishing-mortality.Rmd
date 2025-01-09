@@ -1,0 +1,225 @@
+---
+title: "Fishing mortality"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: FALSE
+    code_folding: show
+    number_sections: TRUE
+---
+
+# SET-UP
+
+```{r markdown, echo=F}
+library(knitr)
+opts_chunk$set(echo = T, collapse = T, fig.align = "center", fig.width = 9, fig.height = 6)
+options(width = 140)
+
+
+```    
+
+```{r settings, message = F}
+source('0.0_settings.R')
+```
+
+# CATCH-AT_AGE by period
+```{r caa1, message = F, fig.width = 8, fig.height = 4}
+caa.periodR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/caa.period.Rdata")
+load(caa.periodR)
+
+
+caa.period_prop<- caa.period %>%  group_by(period, year) %>%  mutate(caat = sum(caan), propcaa = caan/caat)
+#library(colorBlindness)
+ ggplot(caa.period_prop, aes(x=as.factor(age), y=propcaa, col=as.factor(period))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4")) + ggtitle(paste(min(my.year), max(my.year), sep="-"))
+#cvdPlot(caabox)
+
+ 
+ ggplot(caa.period_prop %>%  filter(year <= 2010), aes(x=as.factor(age), y=propcaa, col=as.factor(period))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))   + ggtitle(paste(min(my.year), "2010", sep="-"))
+
+ ggplot(caa.period_prop %>%  filter(year > 2010), aes(x=as.factor(age), y=propcaa, col=as.factor(period))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))  + ggtitle(paste("2011", max(my.year), sep="-"))
+
+ 
+ 
+
+ 
+```
+
+```{r caa2, message = F, fig.width=12, fig.height=4}
+ggplot(caa.period_prop, aes(x=as.factor(year), y=propcaa, fill=as.factor(age), col=as.factor(age))) +facet_wrap( ~period)+geom_bar(stat="identity")  +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") + 
+    scale_x_discrete(breaks=seq(1980, 2020, 5), name="Année/Year")+scale_fill_viridis_d(name="Âge | Age") + scale_color_viridis_d(name="Âge | Age")  + ggtitle(paste(min(my.year), max(my.year), sep="-"))
+
+
+caa.period %>%  group_by(age, year) %>%  mutate(caat = sum(caan), propcaa = caan/caat) %>% 
+ggplot( aes(x=as.factor(year), y=propcaa, fill=as.factor(period), col=as.factor(period))) +facet_wrap( ~age)+geom_bar(stat="identity")  +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") + 
+    scale_x_discrete(breaks=seq(1980, 2020, 5), name="Année/Year")+scale_fill_viridis_d(name="Trimestre | Quarter") + scale_color_viridis_d(name="Trimestre | Quarter")  + ggtitle(paste(min(my.year), max(my.year), sep="-"))
+
+tabl.period<- caa.period %>%  group_by(age, year) %>%  mutate(caat = sum(caan), propcaa = caan/caat) %>%  group_by(age, period) %>%  summarize(propcaa=round(mean(propcaa, na.rm=T),2)) %>%  pivot_wider(names_from=period, values_from=propcaa) 
+kable(tabl.period)
+write.csv(tabl.period, file=paste0("csv/",max(my.year),"/porportion_catch_trimester_age.csv"), row.names=F)
+
+
+ggplot(caa.period_prop %>%  filter(year > 2010), aes(x=as.factor(year), y=propcaa, fill=as.factor(age), col=as.factor(age))) +facet_wrap( ~period)+geom_bar(stat="identity")  +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") + 
+    scale_x_discrete(breaks=seq(1980, 2020, 5), name="Année/Year")+scale_fill_viridis_d(name="Âge | Age") + scale_color_viridis_d(name="Âge | Age")  + ggtitle(paste("2011", max(my.year), sep="-"))
+
+
+
+```
+
+# CATCH-AT_AGE ANOVA by period
+```{r anova, message = F, fig.width = 8, fig.height = 4}
+
+mod1<- betareg(propcaa ~ as.factor(age)*as.factor(period), data=caa.period_prop)
+summary(mod1)
+inv.beta<- mod1$link$mu$d2mu.deta
+
+joint_tests(mod1, "age")
+
+
+tablee<- summary(emmeans(mod1, c("age", "period")), type = "response") 
+
+tablee<- tablee %>% mutate(Proportion.caa=inv.beta(tablee$emmean),
+                   LCI= inv.beta(asymp.LCL),
+                   UCI = inv.beta(asymp.UCL)) 
+
+kable(tablee, caption=paste(min(my.year), max(my.year), sep="-"))
+
+
+tablee %>%   
+    ggplot(aes(x=as.factor(age), y=Proportion.caa, col=as.factor(period))) +geom_pointrange(aes(x=age +(period/10)-0.3 , ymin=LCI, ymax=UCI)) +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +scale_x_continuous(name="Âge | Age", breaks=1:10) +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4")) + ggtitle(paste(min(my.year), max(my.year), sep="-"))
+
+
+
+```
+
+glm could not be done with year >2010, too few data for the numbers of factors
+
+
+# CATCH-AT_AGE gear
+```{r caagear, message = F, fig.width = 8, fig.height = 4}
+caa.gearR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/caa.gear.Rdata")
+load(caa.gearR)
+
+
+caa.gear_prop<- caa.gear %>%  group_by(gear, year) %>%  mutate(caat = sum(caan), propcaa = caan/caat)
+
+ ggplot(caa.gear_prop, aes(x=as.factor(age), y=propcaa, col=as.factor(gear))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Engin | Gear",values=c("dodgerblue", "orange", "darkorange4")) + ggtitle(paste(min(my.year), max(my.year), sep="-"))
+
+ggplot(caa.gear_prop %>%  filter(year <= 2010), aes(x=as.factor(age), y=propcaa, col=as.factor(gear))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Engin | Gearr",values=c("dodgerblue", "orange", "darkorange4"))  + ggtitle(paste(min(my.year), "2010", sep="-"))
+
+ 
+ ggplot(caa.gear_prop %>%  filter(year > 2010), aes(x=as.factor(age), y=propcaa, col=as.factor(gear))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Engin | Gearr",values=c("dodgerblue", "orange", "darkorange4"))  + ggtitle(paste("2011", max(my.year), sep="-"))
+
+ 
+```
+
+
+# aggregation size
+```{r agg, message = F, fig.width = 5, fig.height = 3}
+catch.diffused.periodR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/catch.diffused.period.Rdata")
+load(catch.diffused.periodR)
+
+
+ggplot(catch.diffused.period, aes(x=as.factor(period), y=weight.sample.tot, col=as.factor(period))) +geom_boxplot() +
+    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste(min(my.year), max(my.year), sep="-"))
+
+ggplot(catch.diffused.period %>%  filter(region=="sGSL"), aes(x=as.factor(period), y=weight.sample.tot)) +geom_boxplot() +
+    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") + ggtitle(paste0(paste(min(my.year), max(my.year), sep="-")," sGSL"))
+
+ggplot(catch.diffused.period %>%  filter(year <= 2010), aes(x=as.factor(period), y=weight.sample.tot, col=as.factor(period))) +geom_boxplot() +
+    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste(min(my.year), "2010", sep="-"))
+
+
+ggplot(catch.diffused.period %>%  filter(year > 2010), aes(x=as.factor(period), y=weight.sample.tot)) +geom_boxplot() +
+    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") + ggtitle(paste("2011", max(my.year), sep="-"))
+
+
+```
+
+# length 
+```{r length, message = F, fig.width = 8, fig.height = 4}
+lf.caaR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/lf.caa.Rdata")
+load(lf.caaR)
+#gear.groups <- read.csv(paste0("../01.0_landings/data/group_gear_pretty.csv"))
+
+lf.caa<- lf.caa  %>% 
+    dplyr::group_by(year, period, gear, region) %>%  
+    summarize(lf=weighted.mean(length, w=n)) %>%  filter(period!=1)
+
+
+
+ggplot(lf.caa, aes(x=as.factor(period), y=lf, col=as.factor(period))) +geom_boxplot() +
+    ylab("Longueur moyebbe | Mean length") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste(min(my.year), max(my.year), sep="-"))
+
+ggplot(lf.caa %>%  filter(region=="sGSL"), aes(x=as.factor(period), y=lf, col=as.factor(period))) +geom_boxplot() +
+    ylab("Longueur moyebbe | Mean length") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste0(paste(min(my.year), max(my.year), sep="-")," sGSL"))
+
+ggplot(lf.caa%>%  filter(year <= 2010), aes(x=as.factor(period), y=lf, col=as.factor(period))) +geom_boxplot() +
+    ylab("Longueur moyebbe | Mean length") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste(min(my.year), "2010", sep="-"))
+
+ggplot(lf.caa%>%  filter(year > 2010), aes(x=as.factor(period), y=lf, col=as.factor(period))) +geom_boxplot() +
+    ylab("Longueur moyebbe | Mean length") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste("2011", max(my.year), sep="-"))
+
+```
+
+
+
+# CATCH-AT_AGE by period, gear, region
+```{r caa.all, message = F, fig.width = 12, fig.height = 6}
+caa.diffR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/catch.diffused.Rdata")
+load(caa.diffR)
+caa.all <- ddply(catch.diffused,c('period', "gear", "region"),function(x){x[is.na(x)]<-0;get.caa(x,plus=10)})
+    
+
+caa.prop<- caa.all%>%  group_by(period, year, region, gear) %>%  mutate(caat = sum(caan), propcaa = caan/caat) %>%  filter(region=="sGSL", period>1)
+ ggplot(caa.prop, aes(x=as.factor(age), y=propcaa, col=as.factor(period))) +geom_boxplot() +
+    ylab("Proportion de débarquements par classe d'âge \n Proportion of landings by age class") +xlab("Âge | Age") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4")) + ggtitle(paste(min(my.year), max(my.year), sep="-")) +facet_wrap(~gear)
+
+```
+ 
+# Sex ratio of catches
+```{r caa.sex, message = F, fig.width = 5, fig.height = 3}
+bioR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/bio.Rdata")
+load(bioR)
+gear.groups <- read.csv(paste0("../01.0_landings/data/group_gear_pretty.csv"))
+
+bios<- bio %>% mutate(period=quarter(date)) %>%  
+    group_by(sample.id, gear, period, year, sex, nafo)  %>%  tally() %>% 
+    pivot_wider(names_from=sex, values_from=n) %>%  mutate(propF = `F`/(`F`+M))
+bios<- left_join(bios  %>%  rename(gear.cat=gear), gear.groups)
+
+#full<- betareg(propF ~ 1+period,
+ #          data=bios %>% mutate(period=as.factor(period)) 
+           #)
+#hist(full$fitted.values)
+
+#null<- betareg(propF ~ 1,data=bios)
+#library(lmtest)
+#lrtest(full, null)
+write.csv(bios %>% 
+filter(nafo=="4T", period>1, !is.na(propF)) %>%  group_by(period) %>%  summarize(meanpropF=round(mean(propF),2),
+          sdpropF = round(sd(propF),2)), 
+paste0("csv/",max(my.year),"/propFemales_period.csv"), row.names=F)
+
+
+bios %>% 
+filter(nafo=="4T", period>1, !is.na(propF)) %>% 
+ ggplot(aes(group=period, x=period, y=propF)) +geom_boxplot() +
+    ylab("Proportion de femelles \n Proportion of females") +
+    scale_x_continuous(name="Trimestre | Quarter", breaks=c(2,3,4)) +
+    scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4")) + ggtitle(paste0(paste(min(my.year), max(my.year), sep="-")," sGSL")) +
+    geom_hline(yintercept=0.5, lty=2, col="red")
+
+```
