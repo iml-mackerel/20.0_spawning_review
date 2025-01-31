@@ -132,18 +132,22 @@ catch.diffused.periodR <- paste0("../02.0_catch-at-age/Rdata/",max(my.year),"/ca
 load(catch.diffused.periodR)
 
 
-ggplot(catch.diffused.period, aes(x=as.factor(period), y=weight.sample.tot, col=as.factor(period))) +geom_boxplot() +
-    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste(min(my.year), max(my.year), sep="-"))
 
-ggplot(catch.diffused.period %>%  filter(region=="sGSL"), aes(x=as.factor(period), y=weight.sample.tot)) +geom_boxplot() +
-    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") + ggtitle(paste0(paste(min(my.year), max(my.year), sep="-")," sGSL"))
 
-ggplot(catch.diffused.period %>%  filter(year <= 2010), aes(x=as.factor(period), y=weight.sample.tot, col=as.factor(period))) +geom_boxplot() +
-    ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") +scale_color_manual(name="Trimestre | Quarter",values=c("dodgerblue", "orange", "darkorange4"))+ ggtitle(paste(min(my.year), "2010", sep="-"))
+load(paste0("../01.0_landings/Rdata/2024/catch.Rdata"))
+catch.check<- catch %>%  filter(flag==0) %>%  mutate(period =ceiling(month/3))  %>%  filter(period >1)
+
+
+ggplot(catch.check%>%  filter(nafo=="4T"), aes(x=as.factor(period), y=catch*1000)) +geom_boxplot() +scale_y_continuous(trans="log10", limits=c(1,NA)) +
+    ylab("Poids du débarquement \nLanding weight (kg)") +xlab("Trimestre | Quarter") + ggtitle(paste0(paste(min(my.year), max(my.year), sep="-")," sGSL"))
+
+
 
 
 ggplot(catch.diffused.period %>%  filter(year > 2010), aes(x=as.factor(period), y=weight.sample.tot)) +geom_boxplot() +
     ylab("Poids du débarquement | Weight of landing") +xlab("Trimestre | Quarter") + ggtitle(paste("2011", max(my.year), sep="-"))
+
+
 
 
 ```
